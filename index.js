@@ -69,9 +69,9 @@ function init() {
 };
 
 
-let listofDepartments = []
-function getAllDepartments () {
-  db.query("SELECT * FROM departments", function (err, results) {
+var listofDepartments = []
+function getAllDepartments() {
+  db.query('SELECT * FROM departments', function (err, results) {
     if (err) 
         throw err
     for (var i = 0; i < results.length; i++) {
@@ -81,21 +81,35 @@ function getAllDepartments () {
   return listofDepartments;
 };
 
-let listofRoles = []
-function getAllRoles () {
-  db.query("SELECT * FROM roles", function (err, results) {
+var listofRoles = []
+function getAllRoles() {
+  db.query('SELECT * FROM roles', function (err, results) {
     if (err) 
         throw err
     for (var i = 0; i < results.length; i++) {
         listofRoles.push(results[i].title);
     }
   })
+  console.log(listofRoles)
   return listofRoles;
 };
 
-let listofManagers = ['NULL']
-function getAllManagers () {
-  db.query("SELECT * FROM employees where manager_id is NULL", function (err, results) {
+var listofEmployees = []
+function getAllEmployees() {
+  db.query('SELECT * FROM employees', function (err, results) {
+    if (err) 
+        throw err
+    for (var i = 0; i < results.length; i++) {
+        listofEmployees.push(results[i].first_name + " " + results[i].last_name);
+    }
+  })
+  console.log(listofEmployees);
+  return listofEmployees;
+};
+
+var listofManagers = ['None']
+function getAllManagers() {
+  db.query('SELECT * FROM employees where manager_id is NULL', function (err, results) {
       if (err) 
           throw err
       for (var i = 0; i < results.length; i++) {
@@ -156,10 +170,10 @@ function addRole() {
       name: 'salary',
     },
     {
-      type: 'input',
+      type: 'list',
       message: 'Which department does the role belong to?',
       name: 'department_id',
-      choices: getAllDepartments()
+      choices: getAllDepartments(),
     }
   ]
   inquirer.prompt(roleQuestions)
@@ -190,13 +204,13 @@ function addEmployee() {
       type: 'list',
       message: 'What is the role of the employee?',
       name: 'roleid',
-      choices: getAllRoles()
+      choices: getAllRoles(),
     },
     {
       type: 'list',
       message: 'Who is the manager of the employee',
       name: 'managerid',
-      choices: getAllManagers()
+      choices: getAllManagers(),
     }
   ]
   inquirer.prompt(employeeQuestions)
@@ -218,6 +232,35 @@ function addEmployee() {
         } else {
           console.table(results);
           console.log(`${answers.firstname} ${answers.lastname} added successfully to the employees table`)
+          init();
+        }
+      })
+    })
+}
+
+function updateEmployeeRole() {
+  const employeeUpdate = [
+    {
+      type: 'list',
+      message: 'Which employee role do you want to update?',
+      name: 'employeeName',
+      choices: getAllEmployees(),
+    },
+    {
+      type: 'list',
+      message: 'What role do you want to give the employee?',
+      name: 'roleid',
+      choices: getAllRoles(),
+    },
+  ]
+  inquirer.prompt(employeeUpdate)
+    .then((answers) => {
+      db.query(`UPDATE employees SET role_id = ${listofRoles.indexOf(answers.roleid) + 1} WHERE id = ${listofRoles.indexOf(answers.employeeName) + 1})`, function (err, results) {
+        if (err) {
+          throw (err)
+        } else {
+          console.table(results);
+          console.log(`Employee updated successfully`)
           init();
         }
       })
