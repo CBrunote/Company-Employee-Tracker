@@ -27,7 +27,7 @@ function init() {
           type: 'list',
           message: 'What would you like to do?',
           name: 'startQuestions',
-          choices: ['View All Departments', 'View All Roles', 'View All Employees', 'Add Department', 'Add Role', 'Add Employee', 'Update Employee Role', 'Exit']
+          choices: ['View All Departments', 'View All Roles', 'View All Employees', new inquirer.Separator(), 'Add Department', 'Add Role', 'Add Employee', new inquirer.Separator(),  'Update Employee Role', new inquirer.Separator(), 'Exit', new inquirer.Separator()]
         }
       ])
       .then((answers) => {
@@ -58,7 +58,7 @@ function init() {
             break;
 
           case "Update Employee Role":
-            updateEmmployeeRole();
+            updateEmployeeRole();
             break;
 
           case "Exit":
@@ -68,23 +68,158 @@ function init() {
       })
 };
 
+
+let listofDepartments = []
+function getAllDepartments () {
+  db.query("SELECT * FROM departments", function (err, results) {
+    if (err) 
+        throw err
+    for (var i = 0; i < results.length; i++) {
+        listofDepartments.push(results[i].name);
+    }
+  })
+  return listofDepartments;
+};
+
+let listofRoles = []
+function getAllRoles () {
+  db.query("SELECT * FROM roles", function (err, results) {
+    if (err) 
+        throw err
+    for (var i = 0; i < results.length; i++) {
+        listofRoles.push(results[i].title);
+    }
+  })
+  return listofRoles;
+};
+
+let listofManagers = ['NULL']
+function getAllManagers () {
+  db.query("SELECT * FROM employees where manager_id is NULL", function (err, results) {
+      if (err) 
+          throw err
+      for (var i = 0; i < results.length; i++) {
+          listofManagers.push(results[i].first_name + " " + results[i].last_name);
+      }
+  })
+  console.log(listofManagers);
+  return listofManagers;
+}
+
 function showAllDepartments() {
   db.query('SELECT * FROM departments', function (err, results) {
     console.table(results);
+    init();
   })
-  .then(init());
 };
 
 function showAllRoles() {
   db.query('SELECT * FROM roles', function (err, results) {
     console.table(results);
+    init();
   })
-  .then(init());
 };
 
 function showAllEmployees() {
   db.query('SELECT * FROM employees', function (err, results) {
     console.table(results);
+    init();
   })
-  .then(init());
 };
+
+function addDepartment() {
+  inquirer.prompt(
+    {
+      type: 'input',
+      message: 'What is the name of the department?',
+      name: 'departmentName',
+    }
+  )
+  .then((answers) => {
+    db.query(`INSERT INTO departments (name) VALUES (?)`, answers.departmentName, function (err, results) {
+      console.table(results);
+      init();
+    })
+  }
+)};
+
+function addRole() {
+  const roleQuestions = [
+    {
+      type: 'input',
+      message: 'What is the name of the role?',
+      name: 'title',
+    },
+    {
+      type: 'input',
+      message: 'What is the salary of the role?',
+      name: 'salary',
+    },
+    {
+      type: 'input',
+      message: 'Which department does the role belong to?',
+      name: 'department_id',
+      choices: getAllDepartments()
+    }
+  ]
+  inquirer.prompt(roleQuestions)
+    .then((answers) => {
+      db.query(`INSERT INTO roles (title, salary, department_id)
+      VALUES ("${answers.title}", ${answers.salary}, ${listofDepartments.indexOf(answers.department_id) + 1})`, function (err, results) {
+        console.table(results);
+        console.log(listofManagers)
+        console.log(`${answers.title} role added successfully to the roles table`)
+        init();
+      })
+    })
+  };
+
+function addEmployee() {
+  const employeeQuestions = [
+    {
+      type: 'input',
+      message: 'What is the first name of the employee?',
+      name: 'firstname',
+    },
+    {
+      type: 'input',
+      message: 'What is the last name of the employee?',
+      name: 'lastname',
+    },
+    {
+      type: 'list',
+      message: 'What is the role of the employee?',
+      name: 'roleid',
+      choices: getAllRoles()
+    },
+    {
+      type: 'list',
+      message: 'Who is the manager of the employee',
+      name: 'managerid',
+      choices: getAllManagers()
+    }
+  ]
+  inquirer.prompt(employeeQuestions)
+    .then((answers) => {
+      let managerid = listofManagers.indexOf(answers.managerid)
+      function checkNull() {
+        if (managerid === 0) {
+          managerid = 'NULL'
+        } else {
+          return managerid
+        }
+        console.log(managerid)
+        return managerid
+      }
+      db.query(`INSERT INTO employees (first_name, last_name, role_id, manager_id)
+      VALUES ("${answers.firstname}", "${answers.lastname}", ${listofRoles.indexOf(answers.roleid) + 1}, ${checkNull()})`, function (err, results) {
+        if (err) {
+          throw (err)
+        } else {
+          console.table(results);
+          console.log(`${answers.firstname} ${answers.lastname} added successfully to the employees table`)
+          init();
+        }
+      })
+    })
+}
