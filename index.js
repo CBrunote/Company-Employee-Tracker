@@ -119,7 +119,6 @@ function getAllRoles() {
         listofRoles.push(results[i].title);
     }
   })
-  console.log(listofRoles)
   return listofRoles;
 };   
 
@@ -132,7 +131,6 @@ function getAllManagers() {
           listofManagers.push(results[i].first_name + " " + results[i].last_name);
       }
   })
-  console.log(listofManagers);
   return listofManagers;
 }
 
