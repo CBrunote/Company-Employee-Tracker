@@ -15,6 +15,11 @@ const db = mysql.createConnection(
 db.connect(function (err) {
   if (err) throw err;
   console.log(`connected as id ${db.threadId}`);
+  console.log("=====================================")
+  console.log("||                                 ||")
+  console.log("||        EMPLOYEE MANAGER         ||")
+  console.log("||                                 ||")
+  console.log("=====================================")
   init();
 });
 
@@ -27,7 +32,7 @@ function init() {
           type: 'list',
           message: 'What would you like to do?',
           name: 'startQuestions',
-          choices: ['View All Departments', 'View All Roles', 'View All Employees', new inquirer.Separator(), "View Employees by Manager", "View Employees by Department", new inquirer.Separator(), 'Add Department', 'Add Role', 'Add Employee', new inquirer.Separator(), 'Update Employee Role', 'Update Employee Manager', new inquirer.Separator(), 'Exit', new inquirer.Separator()]
+          choices: ['View All Departments', 'View All Roles', 'View All Employees', new inquirer.Separator(), "View Employees by Manager", "View Employees by Department", new inquirer.Separator(), 'Add Department', 'Add Role', 'Add Employee', new inquirer.Separator(), 'Delete Department', 'Delete Role', 'Delete Employee', new inquirer.Separator(),'Update Employee Role', 'Update Employee Manager', new inquirer.Separator(), 'Exit', new inquirer.Separator()]
         }
       ])
       .then((answers) => {
@@ -63,6 +68,18 @@ function init() {
 
           case "Add Employee":
             addEmployee();
+            break;
+
+          case "Delete Department":
+            deleteDepartment();
+            break;
+
+          case "Delete Role":
+            deleteRole();
+            break;
+
+          case "Delete Employee":
+            deleteEmployee();
             break;
 
           case "Update Employee Role":
@@ -121,22 +138,34 @@ function getAllManagers() {
 
 function showAllDepartments() {
   db.query('SELECT * FROM departments', function (err, results) {
-    console.table(results);
-    init();
+    if (err) {
+      throw (err)
+    } else {
+      console.table(results);
+      init();
+    }
   })
 };
 
 function showAllRoles() {
   db.query('SELECT * FROM roles', function (err, results) {
-    console.table(results);
-    init();
+    if (err) {
+      throw (err)
+    } else {
+      console.table(results);
+      init();
+    }
   })
 };
 
 function showAllEmployees() {
   db.query('SELECT * FROM employees', function (err, results) {
-    console.table(results);
-    init();
+    if (err) {
+      throw (err)
+    } else {
+      console.table(results);
+      init();
+    }
   })
 };
 
@@ -154,9 +183,13 @@ async function employeesByDepartment() {
   )
   .then((answers) => {
     db.query('SELECT employees.first_name, employees.last_name from employees JOIN roles on employees.role_id = roles.id JOIN departments on roles.department_id = departments.id WHERE departments.id = ?', answers.departmentid,  function (err, results) {
-      console.table(results);
-      init();
-      })
+      if (err) {
+        throw (err)
+      } else {
+        console.table(results);
+        init();
+      }
+    })
   })
 }
 
@@ -174,9 +207,13 @@ async function employeesByManager() {
   )
   .then((answers) => {
     db.query(`SELECT * FROM employees where manager_id = ${answers.managerid}`, function (err, results) {
-      console.table(results);
-      init();
-      })
+      if (err){
+        throw (err)
+      } else {
+        console.table(results);
+        init();
+      }
+    })
   })
 }
 
@@ -190,8 +227,12 @@ function addDepartment() {
   )
   .then((answers) => {
     db.query(`INSERT INTO departments (name) VALUES (?)`, answers.departmentName, function (err, results) {
-      console.table(results);
-      init();
+      if (err) {
+        throw (err)
+      } else {
+        console.log(`${answers.departmentName} was successfully added to the departments table`);
+        init();
+      }
     })
   })
 };
@@ -217,10 +258,13 @@ function addRole() {
   ]
   inquirer.prompt(roleQuestions)
     .then((answers) => {
-      db.query(`INSERT INTO roles (title, salary, department_id)
-      VALUES ("${answers.title}", ${answers.salary}, ${listofDepartments.indexOf(answers.department_id) + 1})`, function (err, results) {
-        console.log(`${answers.title} role added successfully to the roles table`)
-        init();
+      db.query(`INSERT INTO roles (title, salary, department_id) VALUES ("${answers.title}", ${answers.salary}, ${listofDepartments.indexOf(answers.department_id) + 1})`, function (err, results) {
+        if (err) {
+          throw (err)
+        } else {
+          console.log(`${answers.title} role added successfully to the roles table`)
+          init();
+        }
       })
     })
 };
@@ -350,4 +394,78 @@ async function updateEmployeeManager() {
         }
       })
     })
+}
+
+async function deleteDepartment() {
+  const allDepartments = await db.promise().query("SELECT * FROM departments")
+  inquirer.prompt(
+    {
+      type: 'list',
+      message: "Which department would you like to delete",
+      name: 'departmentid',
+      choices: allDepartments[0].map((department) => ({
+        name: department.name,
+        value: department.id})),
+    }
+  )
+  .then((answers) => {
+    db.query('DELETE from departments WHERE id = ?', answers.departmentid,  function (err, results) {
+      if (err) {
+        throw (err)
+      } else {
+        console.log(`Department was successfully deleted from departments`);
+        init();
+      }
+    })
+  })
+}
+
+async function deleteRole() {
+  const allRoles = await db.promise().query("SELECT * FROM roles")
+  inquirer.prompt(
+    {
+      type: 'list',
+      message: "Which role would you like to delete",
+      name: 'roleid',
+      choices: allRoles[0].map((role) => ({
+        name: role.title,
+        value: role.id})),
+    }
+  )
+  .then((answers) => {
+    console.log(answers.roleid)
+    db.query(`DELETE from roles WHERE id = ${answers.roleid}`, function (err, results) {
+      if (err) {
+        throw (err)
+      } else {
+        console.log(`Role was successfully deleted from the roles table.`);
+        init();
+      }
+    })
+  })
+}
+
+async function deleteEmployee() {
+  const allEmployees = await db.promise().query("SELECT * FROM employees")
+  inquirer.prompt(
+    {
+      type: 'list',
+      message: "Which employee would you like to delete",
+      name: 'employeeid',
+      choices: allEmployees[0].map((employee) => ({
+        name: `${employee.first_name} ${employee.last_name}`,
+        value: employee.ID})),
+    }
+  )
+  .then((answers) => {
+    console.log(answers.employeeid)
+    db.query(`DELETE from employees WHERE ID = ${answers.employeeid}`, function (err, results) {
+      if (err) {
+        throw (err)
+      } else {
+        console.log(`Employee was successfully deleted from the employees table.`);
+        init();
+      }
+    })
+  })
 }
