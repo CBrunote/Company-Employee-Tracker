@@ -27,7 +27,7 @@ function init() {
           type: 'list',
           message: 'What would you like to do?',
           name: 'startQuestions',
-          choices: ['View All Departments', 'View All Roles', 'View All Employees', new inquirer.Separator(), 'Add Department', 'Add Role', 'Add Employee', new inquirer.Separator(),  'Update Employee Role', new inquirer.Separator(), 'Exit', new inquirer.Separator()]
+          choices: ['View All Departments', 'View All Roles', 'View All Employees', new inquirer.Separator(), "View Employees by Manager", "View Employees by Department", new inquirer.Separator(), 'Add Department', 'Add Role', 'Add Employee', new inquirer.Separator(), 'Update Employee Role', 'Update Employee Manager', new inquirer.Separator(), 'Exit', new inquirer.Separator()]
         }
       ])
       .then((answers) => {
@@ -45,6 +45,14 @@ function init() {
             showAllEmployees();
             break;
 
+          case "View Employees by Manager":
+            employeesByManager();
+            break;
+
+          case "View Employees by Department":
+            employeesByDepartment();
+            break;
+
           case "Add Department":
             addDepartment();
             break;
@@ -59,6 +67,10 @@ function init() {
 
           case "Update Employee Role":
             updateEmployeeRole();
+            break;
+
+          case "Update Employee Manager":
+            updateEmployeeManager();
             break;
 
           case "Exit":
@@ -92,20 +104,7 @@ function getAllRoles() {
   })
   console.log(listofRoles)
   return listofRoles;
-};
-
-var listofEmployees = []
-function getAllEmployees() {
-  db.query('SELECT * FROM employees', function (err, results) {
-    if (err) 
-        throw err
-    for (var i = 0; i < results.length; i++) {
-        listofEmployees.push(results[i].first_name + " " + results[i].last_name);
-    }
-  })
-  console.log(listofEmployees);
-  return listofEmployees;
-};
+};   
 
 var listofManagers = ['None']
 function getAllManagers() {
@@ -141,6 +140,46 @@ function showAllEmployees() {
   })
 };
 
+async function employeesByDepartment() {
+  const allDepartments = await db.promise().query("SELECT * FROM departments")
+  inquirer.prompt(
+    {
+      type: 'list',
+      message: "Which department's employees would you like to see",
+      name: 'departmentid',
+      choices: allDepartments[0].map((department) => ({
+        name: department.name,
+        value: department.id})),
+    }
+  )
+  .then((answers) => {
+    db.query('SELECT employees.first_name, employees.last_name from employees JOIN roles on employees.role_id = roles.id JOIN departments on roles.department_id = departments.id WHERE departments.id = ?', answers.departmentid,  function (err, results) {
+      console.table(results);
+      init();
+      })
+  })
+}
+
+async function employeesByManager() {
+  const allManagers = await db.promise().query("SELECT * FROM employees where manager_id is NULL")
+  inquirer.prompt(
+    {
+      type: 'list',
+      message: "Which manager's employees would you like to see",
+      name: 'managerid',
+      choices: allManagers[0].map((manager) => ({
+        name: `${manager.first_name} ${manager.last_name}`,
+        value: manager.ID})),
+    }
+  )
+  .then((answers) => {
+    db.query(`SELECT * FROM employees where manager_id = ${answers.managerid}`, function (err, results) {
+      console.table(results);
+      init();
+      })
+  })
+}
+
 function addDepartment() {
   inquirer.prompt(
     {
@@ -154,8 +193,8 @@ function addDepartment() {
       console.table(results);
       init();
     })
-  }
-)};
+  })
+};
 
 function addRole() {
   const roleQuestions = [
@@ -180,13 +219,11 @@ function addRole() {
     .then((answers) => {
       db.query(`INSERT INTO roles (title, salary, department_id)
       VALUES ("${answers.title}", ${answers.salary}, ${listofDepartments.indexOf(answers.department_id) + 1})`, function (err, results) {
-        console.table(results);
-        console.log(listofManagers)
         console.log(`${answers.title} role added successfully to the roles table`)
         init();
       })
     })
-  };
+};
 
 function addEmployee() {
   const employeeQuestions = [
@@ -230,7 +267,6 @@ function addEmployee() {
         if (err) {
           throw (err)
         } else {
-          console.table(results);
           console.log(`${answers.firstname} ${answers.lastname} added successfully to the employees table`)
           init();
         }
@@ -238,29 +274,78 @@ function addEmployee() {
     })
 }
 
-function updateEmployeeRole() {
+async function updateEmployeeRole() {
+  const allEmployees = await db.promise().query("SELECT * FROM employees")
+  const allRoles = await db.promise().query("SELECT * FROM roles")
+
   const employeeUpdate = [
     {
       type: 'list',
       message: 'Which employee role do you want to update?',
       name: 'employeeName',
-      choices: getAllEmployees(),
+      choices: allEmployees[0].map((employee) => ({
+        name: `${employee.first_name} ${employee.last_name}`,
+        value: employee.ID})),
     },
     {
       type: 'list',
       message: 'What role do you want to give the employee?',
       name: 'roleid',
-      choices: getAllRoles(),
+      choices: allRoles[0].map((roles) => ({
+        name: roles.title,
+        value: roles.id})),
     },
   ]
   inquirer.prompt(employeeUpdate)
     .then((answers) => {
-      db.query(`UPDATE employees SET role_id = ${listofRoles.indexOf(answers.roleid) + 1} WHERE id = ${listofRoles.indexOf(answers.employeeName) + 1})`, function (err, results) {
+      db.query(`UPDATE employees SET role_id = ${answers.roleid} WHERE id = ${answers.employeeName}`, function (err, results) {
         if (err) {
           throw (err)
         } else {
-          console.table(results);
           console.log(`Employee updated successfully`)
+          init();
+        }
+      })
+    })
+}
+
+async function updateEmployeeManager() {
+  const allEmployees = await db.promise().query("SELECT * FROM employees")
+  const allManagers = await db.promise().query("SELECT * FROM employees where manager_id is NULL")
+
+  const managerUpdate = [
+    {
+      type: 'list',
+      message: "Which employee's manager do you want to update?",
+      name: 'employeeName',
+      choices: allEmployees[0].map((employee) => ({
+        name: `${employee.first_name} ${employee.last_name}`,
+        value: employee.ID})),
+    },
+    {
+      type: 'list',
+      message: 'Who is the new manager of the employee?',
+      name: 'managerid',
+      choices: getAllManagers(),
+    },
+  ]
+  inquirer.prompt(managerUpdate)
+    .then((answers) => {
+      let managerid = listofManagers.indexOf(answers.managerid)
+      function checkNull() {
+        if (managerid === 0) {
+          managerid = 'NULL'
+        } else {
+          return managerid
+        }
+        console.log(managerid)
+        return managerid
+      }
+      db.query(`UPDATE employees SET manager_id = ${checkNull()} WHERE id = ${answers.employeeName}`, function (err, results) {
+        if (err) {
+          throw (err)
+        } else {
+          console.log(`Employee's Manager updated successfully`)
           init();
         }
       })
